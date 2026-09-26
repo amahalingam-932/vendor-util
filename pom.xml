@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>com.way.microservices</groupId>
+		<artifactId>art-way-parent</artifactId>
+		<version>2.0</version>
+		<relativePath />
+	</parent>
+
+	<artifactId>way-vendor-util</artifactId>
+	<version>2.0</version>
+	<packaging>jar</packaging>
+	<name>way-vendor-util</name>
+	<description>Vendor pricing rules shared by the micro services</description>
+
+	<!--
+		Deliberately a small, plain library: money arithmetic, tax rules and the JSON shape of a
+		vendor's rate card, and nothing else. It carries no Spring context, no database access and
+		no HTTP client, so a service can depend on it without inheriting anything it did not ask
+		for, and so its rules can be unit tested without standing a service up.
+
+		That is also why it does not depend on way-util. Everything here needs four lines of date
+		parsing from it, and taking the whole artifact for that would pull Spring Boot, Hazelcast
+		and JPA behind a pricing calculation.
+	-->
+	<dependencies>
+
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-databind</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-annotations</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+	</dependencies>
+
+</project>
