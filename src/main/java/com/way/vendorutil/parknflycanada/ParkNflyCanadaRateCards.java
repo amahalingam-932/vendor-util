@@ -17,23 +17,6 @@ import java.util.List;
 
 /**
  * Reads and writes the stored Park'N Fly Canada rate cards.
- *
- * <p>Cards are held as a JSON array on the listing attribute {@value #RATE_CARD_ATTRIBUTE}, so
- * both search and checkout can read them from a table they already query and no schema change is
- * needed. An array rather than one attribute per rate, because a booking horizon can straddle two
- * cards and an attribute holds a single value per key.
- *
- * <pre>
- * [{"from":"2026-07-22","to":"2027-01-01","hour":4.99,"day":12.99,"week":59.99}]
- * </pre>
- *
- * <p>Money is read as {@link BigDecimal} rather than a floating point type, so a rate never
- * arrives a fraction of a cent off what the vendor published.
- *
- * <p>Reads are lenient and writes are strict: unparseable stored JSON yields an empty list rather
- * than an exception, because the caller's correct response to "no usable card" is to withhold the
- * lot, and that is the same response as "no card at all". A malformed attribute must not take a
- * search page down.
  */
 public final class ParkNflyCanadaRateCards {
 
@@ -41,16 +24,11 @@ public final class ParkNflyCanadaRateCards {
 
     /**
      * Listing attribute holding the JSON array of cards.
-     *
-     * <p>Both this and {@link #RATE_SYNCED_AT_ATTRIBUTE} need a row in {@code tbl_service_key}
-     * before anything can be written against them - an environment without those two rows refuses
-     * every store, logs "required service keys are missing" and withholds every Canadian lot.
-     * Staging already has them, proven by the cards stored there. Any environment that has not had
-     * them created by hand needs them before this vendor is switched on.
      */
     public static final String RATE_CARD_ATTRIBUTE = "PNF_CA_RATE_CARD";
 
-    /** Listing attribute holding the ISO instant of the last successful sync. */
+    /**
+     */
     public static final String RATE_SYNCED_AT_ATTRIBUTE = "PNF_CA_RATE_SYNCED_AT";
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
@@ -63,9 +41,6 @@ public final class ParkNflyCanadaRateCards {
 
     /**
      * Parses the stored attribute value.
-     *
-     * @return the cards, oldest window first; empty when the value is blank, malformed, or
-     *         contains no card with a usable window
      */
     public static List<ParkNflyCanadaRateCard> fromJson(String json) {
         if (json == null || json.isBlank()) {
@@ -90,10 +65,6 @@ public final class ParkNflyCanadaRateCards {
 
     /**
      * Serialises cards for storage.
-     *
-     * @throws IllegalArgumentException if the cards cannot be written, because a sync job that
-     *                                  cannot serialise its result must fail loudly rather than
-     *                                  overwrite a good attribute with nothing
      */
     public static String toJson(List<ParkNflyCanadaRateCard> cards) {
         List<StoredCard> stored = new ArrayList<>();
@@ -111,9 +82,6 @@ public final class ParkNflyCanadaRateCards {
 
     /**
      * Selects the card that prices a stay starting on {@code checkInDate}.
-     *
-     * @return the covering, priceable card, or {@code null} when none applies - the lot is then
-     *         not sellable for those dates and must be withheld rather than priced from a guess
      */
     public static ParkNflyCanadaRateCard cardFor(List<ParkNflyCanadaRateCard> cards, LocalDate checkInDate) {
         return cardFor(cards, checkInDate, null);
@@ -121,17 +89,6 @@ public final class ParkNflyCanadaRateCards {
 
     /**
      * Selects the card that prices a stay, requiring one window to cover the whole of it.
-     *
-     * <p>Checking only the start date prices the entire stay from the window the customer arrives
-     * in. A stay from 30 December into 6 January would then be charged at the old year's rates
-     * even though most of it falls after the vendor's rate change - and the customer sees and
-     * accepts that price before the booking reconciles against what Park'N Fly Canada actually
-     * charge. Requiring both ends to sit in one window withholds the lot instead.
-     *
-     * <p>Splitting the stay across windows would be the richer answer, but it needs Park'N Fly
-     * Canada's own rule for a stay that crosses a rate change, and that is neither documented nor
-     * confirmed. Withholding is the honest behaviour until it is: the customer is told rates are
-     * unavailable for those dates rather than quoted a figure Way cannot honour.
      *
      * @param checkOutDate end of the stay, or {@code null} to consider the start date alone
      * @return the covering, priceable card, or {@code null} when none applies - the lot is then
@@ -150,12 +107,14 @@ public final class ParkNflyCanadaRateCards {
                 .orElse(null);
     }
 
-    /** Convenience for callers holding the raw attribute value. */
+    /**
+     */
     public static ParkNflyCanadaRateCard cardFor(String json, LocalDate checkInDate) {
         return cardFor(fromJson(json), checkInDate, null);
     }
 
-    /** Convenience for callers holding the raw attribute value and both ends of the stay. */
+    /**
+     */
     public static ParkNflyCanadaRateCard cardFor(String json, LocalDate checkInDate,
             LocalDate checkOutDate) {
         return cardFor(fromJson(json), checkInDate, checkOutDate);
@@ -179,7 +138,8 @@ public final class ParkNflyCanadaRateCards {
                 .orElse(null);
     }
 
-    /** Wire shape. Dates are strings so the module needs no Jackson date module. */
+    /**
+     */
     @JsonIgnoreProperties(ignoreUnknown = true)
     private record StoredCard(
             @JsonProperty("from") String from,

@@ -1,93 +1,84 @@
 package com.way.vendorutil.parknflycanada;
 
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.OptionalInt;
 
 /**
  * Billable parking days for Park'N Fly Canada pricing.
- *
- * <p>Park'N Fly Canada forgive a short overstay: a stay that runs a few minutes past a whole day is
- * billed as that whole day, not the next one. Way used to round any remainder up, matching the
- * generic {@code CartManagementServiceImpl#calculateDurationInDays}, and so charged a whole extra
- * day for a few minutes the vendor never billed for.
- *
- * <p>That was confirmed against a real invoice rather than inferred. Reservation 990004016038, a
- * stay of three days and exactly fifteen minutes, came back from the vendor with
- * {@code total_estimated_fee = 48.00} - the three day total - while Way charged four days at
- * 62.67. An earlier booking, 990004006326, had already lost 15.98 the same way.
- *
- * <p>Fifteen minutes is therefore forgiven, and the boundary is inclusive: exactly fifteen minutes
- * past three days is three days, which is the case the invoice above settles. A second past that
- * is a fourth day, because the vendor's own grace has run out.
  */
 public final class ParkNflyCanadaStayDuration {
 
-    private static final long MILLIS_PER_DAY = 24L * 60L * 60L * 1000L;
+    /**
+     * Timestamp shapes a stay may arrive in, tried in order: Way's own, then the vendor's.
+     * A zone or offset is parsed and dropped - these are wall-clock times at the car park.
+     */
+    private static final DateTimeFormatter[] ACCEPTED_FORMATS = {
+            DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss"),
+            DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm"),
+            DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss[.SSS][XXX][X]"),
+            DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm[XXX][X]"),
+    };
 
     /**
-     * The overstay the vendor forgives, confirmed by Park'N Fly Canada and by their invoice for
-     * reservation 990004016038.
+     * A stay that can be read is at least one day. A floor, not a rate, so it stays a constant.
+     * Never a fallback for a stay that cannot be read - that case has no answer and says so.
      */
-    public static final int DEFAULT_GRACE_MINUTES = 15;
+    private static final int MINIMUM_BILLABLE_DAYS = 1;
 
     private ParkNflyCanadaStayDuration() {
-    }
-
-    /** Billable days with the vendor's own fifteen minute grace. */
-    public static int billableDays(String startDateTime, String endDateTime) {
-        return billableDays(startDateTime, endDateTime, DEFAULT_GRACE_MINUTES);
     }
 
     /**
      * Billable days, forgiving an overstay of up to {@code graceMinutes}.
      *
-     * <p>The grace is a term of the vendor's rating, not a Way policy, so it is a parameter rather
-     * than a constant buried in the arithmetic - if Park'N Fly Canada change it, one value changes
-     * and every screen follows.
-     *
      * @param graceMinutes minutes past a whole day that are not charged; zero or less bills any
      *                     remainder as a further day
-     * @return at least one day; an unreadable date pair also counts as one, which is what the
-     *         caller then prices and what the vendor would invoice at minimum
+     * @return the billable days, or empty when the stay cannot be read - dates that do not parse,
+     *         or a check-out before its check-in. Empty rather than a number, because there is no
+     *         safe number to return for a stay nobody can describe.
      */
-    public static int billableDays(String startDateTime, String endDateTime, int graceMinutes) {
-        try {
-            Calendar from = toCalendar(startDateTime);
-            Calendar to = toCalendar(endDateTime);
-            long diff = to.getTimeInMillis() - from.getTimeInMillis();
-
-            long days = diff / MILLIS_PER_DAY;
-            long remainder = diff % MILLIS_PER_DAY;
-            long grace = Math.max(0L, (long) graceMinutes) * 60L * 1000L;
-            if (remainder > grace) {
-                days++;
-            }
-            return (int) Math.max(1L, days);
-        } catch (Exception ex) {
-            return 1;
+    public static OptionalInt billableDays(String startDateTime, String endDateTime,
+            int graceMinutes) {
+        LocalDateTime from = parse(startDateTime);
+        LocalDateTime to = parse(endDateTime);
+        if (from == null || to == null) {
+            return OptionalInt.empty();
         }
+
+        Duration stay = Duration.between(from, to);
+        if (stay.isNegative()) {
+            return OptionalInt.empty();
+        }
+
+        long days = stay.toDays();
+        Duration remainder = stay.minusDays(days);
+        // Compared as durations rather than whole minutes on purpose. Truncating the remainder to
+        // minutes would make fifteen minutes and one second look like fifteen, and forgive a day
+        // the vendor charges for.
+        Duration grace = Duration.ofMinutes(Math.max(0, graceMinutes));
+        if (remainder.compareTo(grace) > 0) {
+            days++;
+        }
+        return OptionalInt.of((int) Math.max(MINIMUM_BILLABLE_DAYS, days));
     }
 
     /**
-     * The same parse {@code com.way.util.dateutil.DateUtils#getCalendar(String)} performs, kept
-     * here so this artifact does not depend on way-util - and so on Spring, Hazelcast and JPA -
-     * for four lines of date handling.
-     *
-     * <p>Behaviour is deliberately identical to that method, including the swallowed
-     * {@link ParseException} that leaves the calendar on the current time. Changing it belongs in
-     * its own ticket, not in a move: a stay whose dates do not parse is currently billed as one
-     * day by the caller's own catch, and quietly altering that here would change what a customer
-     * pays as a side effect of splitting an artifact.
+     * Reads a stay timestamp in any of the shapes Way and the vendor exchange.
      */
-    private static Calendar toCalendar(String dateInString) {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        Calendar calendar = Calendar.getInstance();
-        try {
-            calendar.setTime(sdf.parse(dateInString));
-        } catch (ParseException unparseable) {
-            // Intentionally ignored; see the note above.
+    private static LocalDateTime parse(String dateTime) {
+        if (dateTime == null || dateTime.trim().isEmpty()) {
+            return null;
         }
-        return calendar;
+        String trimmed = dateTime.trim();
+        for (DateTimeFormatter format : ACCEPTED_FORMATS) {
+            try {
+                return LocalDateTime.parse(trimmed, format);
+            } catch (DateTimeParseException notThisShape) {
+            }
+        }
+        return null;
     }
 }

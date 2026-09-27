@@ -6,15 +6,6 @@ import java.time.LocalDate;
 /**
  * One Park'N Fly Canada rate card: the unit rates for a lot, and the dates they apply between.
  *
- * <p>{@code locationListGet} takes a single {@code start_date} but answers with a card stamped
- * {@code date_from}/{@code date_to} - for Toronto Payless, a request for 21 Aug 2026 returned
- * rates valid from 22 Jul 2026 to 1 Jan 2027. The rates are therefore not per-date, and a booking
- * horizon of several months is usually covered by one card. Keeping the window is what lets a
- * sync job fetch once instead of once per searchable date.
- *
- * <p>Rates are base amounts only. The fuel surcharge and sales tax are province-specific, are not
- * returned by the vendor, and live in configuration - see {@link ParkNflyCanadaTaxRule}.
- *
  * @param validFrom first date the rates apply, inclusive
  * @param validTo   last date the rates apply, inclusive
  * @param hourRate  {@code hour_rate}; not used by the current stay bands but stored as returned
@@ -28,7 +19,8 @@ public record ParkNflyCanadaRateCard(
         BigDecimal dayRate,
         BigDecimal weekRate) {
 
-    /** True when {@code date} falls inside this card's validity window, both ends inclusive. */
+    /**
+     */
     public boolean covers(LocalDate date) {
         if (date == null || validFrom == null || validTo == null) {
             return false;

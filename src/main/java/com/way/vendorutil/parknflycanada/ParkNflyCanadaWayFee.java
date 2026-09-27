@@ -7,19 +7,9 @@ import java.util.List;
 /**
  * Way's own fee on a Park'N Fly Canada stay.
  *
- * <p>Way charges its fee on top of what the vendor charges, and every screen the customer sees has
- * to include it or the price they are quoted is not the price they are billed. That had gone wrong
- * twice: search showed the vendor total alone and jumped by Way's fee at the payment step, and the
- * lot detail page showed the parking base with neither the vendor's surcharge and tax nor this.
- *
- * <p>Each service holds these rules in its own shape - a packed string in search, DTOs in orders -
- * so this takes the two fields that actually matter and nothing else. The caller maps its own
- * representation into {@link Rule}; how a percentage becomes money, and where it rounds, lives here
- * once.
- *
- * <p>Only rules Way charges belong here. The same table also carries the vendor's own tax rules,
- * and for this vendor those are not used: the surcharge and sales tax come from the rate card and
- * the lot's own settings, so counting them again would tax the stay twice.
+ * <p>Charged on top of the vendor's amounts, so every screen must include it or the quoted price
+ * is not the billed one. Callers map their own representation into {@link Rule}; turning a
+ * percentage into money, and where it rounds, lives here once.
  */
 public final class ParkNflyCanadaWayFee {
 
@@ -44,10 +34,6 @@ public final class ParkNflyCanadaWayFee {
      * <p>Charged on the vendor's base - what the customer is actually buying - and never on the
      * schedule price, which this vendor does not charge, nor on the vendor's own surcharge and tax,
      * which are not Way's to take a percentage of.
-     *
-     * <p>Zero for no rules, unreadable rules or a missing amount. A lot with no Way fee is
-     * ordinary, and inventing one would overstate the bill as surely as omitting a real one
-     * understates it.
      */
     public static BigDecimal on(BigDecimal amount, List<Rule> rules) {
         if (amount == null || rules == null || rules.isEmpty()) {
@@ -72,8 +58,6 @@ public final class ParkNflyCanadaWayFee {
         if ("AMOUNT".equalsIgnoreCase(type) || "FLAT".equalsIgnoreCase(type) || "$".equals(type)) {
             return rule.value().setScale(2, RoundingMode.HALF_UP);
         }
-        // An unknown type is not guessed at. Charging on a rule nobody has defined is worse than
-        // charging nothing, and the total still reconciles against the vendor invoice either way.
         return BigDecimal.ZERO;
     }
 }

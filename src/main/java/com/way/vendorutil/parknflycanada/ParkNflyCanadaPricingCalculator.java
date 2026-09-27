@@ -7,19 +7,8 @@ import java.math.RoundingMode;
  * Customer checkout and vendor-statement math for Park'N Fly Canada.
  *
  * <p>The customer pays {@code base + fuel + tax}. Way's commission is a share of that total on the
- * vendor statement, not a deduction from what the customer pays, so it never reduces
+ * vendor statement, not a deduction from it, so it never reduces
  * {@link ParkNflyCanadaPricingQuote#customerTotal()}.
- *
- * <p>The sales tax applies to the parking base alone unless the listing says otherwise. That
- * default is what Way's shared tax evaluator does for every other vendor, and it is what Park'N
- * Fly themselves return - a 12.99 base comes back with 1.69 of tax, which is thirteen per cent of
- * 12.99 and not of 16.95.
- *
- * <p>Park'N Fly's IT director has stated the opposite in writing, so the basis is settable per lot
- * through the listing's {@code TAX_ON_FUEL} vendor tax rule, which Ops enter in WayPanel. Per lot
- * rather than per service: a service-wide flag was tried and removed because it forced one answer
- * onto every Canadian location when the disagreement concerns particular ones. The lot's surcharge
- * and tax rate come from the same ordinary {@code VENDOR} tax rules.
  */
 public final class ParkNflyCanadaPricingCalculator {
 
@@ -31,6 +20,7 @@ public final class ParkNflyCanadaPricingCalculator {
     }
 
     /**
+     *
      * @param billableDays         whole parking days, as charged by the vendor's day rate
      * @param dayRate              {@code day_rate} from {@code locationListGet}
      * @param weekRate             {@code week_rate} from {@code locationListGet}
@@ -43,7 +33,8 @@ public final class ParkNflyCanadaPricingCalculator {
                 ParkNflyCanadaCurrencyConversion.NONE, false);
     }
 
-    /** As above, with the tax basis this lot is configured for. */
+    /**
+     */
     public static ParkNflyCanadaPricingQuote quote(int billableDays, BigDecimal dayRate, BigDecimal weekRate,
             ParkNflyCanadaTaxRule taxRule, BigDecimal wayCommissionPercent, boolean taxIncludesFuel) {
         return quote(billableDays, dayRate, weekRate, taxRule, wayCommissionPercent,
@@ -53,17 +44,7 @@ public final class ParkNflyCanadaPricingCalculator {
     /**
      * As above, converting the customer-facing amounts into the currency Way charges in.
      *
-     * <p>The stay is priced in the vendor's currency first and only then converted, so the tax
-     * stays a percentage of the base the vendor actually charges. Pricing from converted unit
-     * rates instead would give an HST figure that could never match their
-     * {@code total_estimated_fee}, and the fee reconciliation compares against precisely that.
-     *
-     * <p>Way's commission is taken on the converted base, because it is Way's revenue in Way's own
-     * currency rather than a share of the vendor's invoice.
-     *
-     * @param conversion vendor-to-checkout currency conversion, or
-     *                   {@link ParkNflyCanadaCurrencyConversion#NONE} to charge the vendor's
-     *                   amounts unchanged
+     * @param conversion vendor-to-checkout currency conversion
      */
     public static ParkNflyCanadaPricingQuote quote(int billableDays, BigDecimal dayRate, BigDecimal weekRate,
             ParkNflyCanadaTaxRule taxRule, BigDecimal wayCommissionPercent,
@@ -109,11 +90,27 @@ public final class ParkNflyCanadaPricingCalculator {
         BigDecimal hst = fx.convert(vendorHst);
         BigDecimal customerTotal = base.add(fuel).add(hst);
 
-        BigDecimal wayCommission = scaleMoney(base.multiply(wayCommissionPercent)
-                .divide(HUNDRED, MONEY_SCALE + 2, MONEY));
+        BigDecimal wayCommission = commissionOn(base, wayCommissionPercent);
         BigDecimal vendorNet = customerTotal.subtract(wayCommission);
         return new ParkNflyCanadaPricingQuote(billableDays, taxRule.province(), base, fuel, hst, customerTotal,
                 wayCommission, vendorNet, vendorBase, vendorFuel, vendorHst, vendorTotal, fx.rate());
+    }
+
+    /**
+     * Way's commission on a stay's base, as money.
+     *
+     * <p>Taken on the base alone - never on the fuel surcharge or the sales tax, which are the
+     * vendor's and the government's respectively - and on the base in the currency Way charges in,
+     * because this is Way's revenue rather than a share of the vendor's invoice.
+     *
+     * @return the commission, or null when either input is missing
+     */
+    public static BigDecimal commissionOn(BigDecimal base, BigDecimal wayCommissionPercent) {
+        if (base == null || wayCommissionPercent == null) {
+            return null;
+        }
+        return scaleMoney(base.multiply(wayCommissionPercent)
+                .divide(HUNDRED, MONEY_SCALE + 2, MONEY));
     }
 
     private static BigDecimal scaleMoney(BigDecimal amount) {
