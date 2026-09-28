@@ -30,7 +30,6 @@ class ParkNflyCanadaVendorTaxTest {
 
         assertEquals(new BigDecimal("3.96"), tax.fuelSurcharge());
         assertEquals(new BigDecimal("13"), tax.taxRate());
-        assertFalse(tax.taxIncludesFuel());
     }
 
     /** Two levies of the same kind are a real configuration, so they add rather than overwrite. */
@@ -44,45 +43,21 @@ class ParkNflyCanadaVendorTaxTest {
         assertEquals(new BigDecimal("13"), tax.taxRate());
     }
 
+    /** Lots configured before the flag was dropped still carry the row; it must be ignored. */
     @Test
-    void taxOnFuelIsReadFromItsOwnRule() {
-        ParkNflyCanadaVendorTax on = ParkNflyCanadaVendorTax.from(
-                List.of(rule("PERCENT", "13"), rule("TAX_ON_FUEL", "1")));
-        ParkNflyCanadaVendorTax off = ParkNflyCanadaVendorTax.from(
-                List.of(rule("PERCENT", "13"), rule("TAX_ON_FUEL", "0")));
-
-        assertTrue(on.taxIncludesFuel());
-        assertFalse(off.taxIncludesFuel());
-    }
-
-    /**
-     * A flag is not a levy. Two of these must not add up to 2 and mean something new, so the last
-     * row read decides - which is also what happens if a lot is somehow configured twice.
-     */
-    @Test
-    void repeatedTaxOnFuelRulesDoNotAccumulate() {
+    void taxOnFuelRowsAreIgnored() {
         ParkNflyCanadaVendorTax tax = ParkNflyCanadaVendorTax.from(
-                List.of(rule("TAX_ON_FUEL", "1"), rule("TAX_ON_FUEL", "0")));
+                List.of(rule("PERCENT", "13"), rule("TAX_ON_FUEL", "1")));
 
-        assertFalse(tax.taxIncludesFuel());
+        assertEquals(new BigDecimal("13"), tax.taxRate());
+        assertNull(tax.fuelSurcharge());
     }
 
-    /** A lot that predates this field taxes the base alone, as it did before the field existed. */
+    /** A lot carrying only the dropped flag has nothing configured. */
     @Test
-    void absentTaxOnFuelMeansBaseOnly() {
-        ParkNflyCanadaVendorTax tax = ParkNflyCanadaVendorTax.from(List.of(rule("PERCENT", "13")));
-
-        assertNull(tax.taxOnFuel());
-        assertFalse(tax.taxIncludesFuel());
-    }
-
-    /** A lot carrying only the basis flag is still configured, so it must not read as NONE. */
-    @Test
-    void taxOnFuelAloneIsNotEmpty() {
-        ParkNflyCanadaVendorTax tax = ParkNflyCanadaVendorTax.from(List.of(rule("TAX_ON_FUEL", "1")));
-
-        assertFalse(tax.isEmpty());
-        assertTrue(tax.taxIncludesFuel());
+    void taxOnFuelAloneReadsAsNone() {
+        assertSame(ParkNflyCanadaVendorTax.NONE,
+                ParkNflyCanadaVendorTax.from(List.of(rule("TAX_ON_FUEL", "1"))));
     }
 
     @Test
@@ -90,7 +65,6 @@ class ParkNflyCanadaVendorTaxTest {
         assertSame(ParkNflyCanadaVendorTax.NONE, ParkNflyCanadaVendorTax.from(List.of()));
         assertSame(ParkNflyCanadaVendorTax.NONE, ParkNflyCanadaVendorTax.from(null));
         assertTrue(ParkNflyCanadaVendorTax.NONE.isEmpty());
-        assertFalse(ParkNflyCanadaVendorTax.NONE.taxIncludesFuel());
     }
 
     /** An unreadable or unknown row is skipped: one bad row must not take a lot off sale. */
@@ -103,13 +77,4 @@ class ParkNflyCanadaVendorTaxTest {
         assertNull(tax.fuelSurcharge());
     }
 
-    /** The two-argument form is what older callers use; it must keep meaning "base only". */
-    @Test
-    void legacyConstructorDefaultsToBaseOnly() {
-        ParkNflyCanadaVendorTax tax =
-                new ParkNflyCanadaVendorTax(new BigDecimal("3.96"), new BigDecimal("13"));
-
-        assertNull(tax.taxOnFuel());
-        assertFalse(tax.taxIncludesFuel());
-    }
 }

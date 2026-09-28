@@ -217,8 +217,7 @@ public final class ParkNflyCanadaStayPricing {
         int billableDays = stayDays.getAsInt();
 
         ParkNflyCanadaPricingQuote quote = ParkNflyCanadaPricingCalculator.quote(billableDays,
-                card.dayRate(), card.weekRate(), taxRule, wayCommissionPercent,
-                conversion, vendorTax.taxIncludesFuel());
+                card.dayRate(), card.weekRate(), taxRule, wayCommissionPercent, conversion);
 
         return new Result(card, quote, perDay(quote), null, null);
     }

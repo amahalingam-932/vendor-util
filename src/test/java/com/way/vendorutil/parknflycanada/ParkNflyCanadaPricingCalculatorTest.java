@@ -83,38 +83,6 @@ class ParkNflyCanadaPricingCalculatorTest {
         assertEquals(new BigDecimal("60.46"), quote.customerTotal());
     }
 
-    /**
-     * A lot configured for tax on the surcharge follows its own rule, not the default.
-     *
-     * <p>Park'N Fly's IT director stated in writing that HST applies to base plus the taxable fuel
-     * surcharge. Their billing engine does not do that, which is why the default is base-only - but
-     * Ops can set it per lot, and when they do the arithmetic has to follow.
-     *
-     * <p>On a 50.00 base: 13% of 53.96 is 7.01, giving 60.97 rather than the 60.46 the default
-     * produces. The two figures differ by 13% of the 3.96 surcharge, about 0.51 a booking.
-     */
-    @Test
-    void taxIncludesTheFuelSurchargeWhenTheLotIsConfiguredThatWay() {
-        ParkNflyCanadaPricingQuote quote = ParkNflyCanadaPricingCalculator.quote(
-                1, new BigDecimal("50.00"), WEEK, ONTARIO, COMMISSION, true);
-
-        assertEquals(new BigDecimal("50.00"), quote.base());
-        assertEquals(new BigDecimal("7.01"), quote.hst());
-        assertEquals(new BigDecimal("60.97"), quote.customerTotal());
-    }
-
-    /** The flag defaults to off, so an existing caller that never passed it is unaffected. */
-    @Test
-    void omittingTheTaxBasisKeepsTheBaseOnlyRule() {
-        ParkNflyCanadaPricingQuote withoutFlag = ParkNflyCanadaPricingCalculator.quote(
-                1, new BigDecimal("50.00"), WEEK, ONTARIO, COMMISSION);
-        ParkNflyCanadaPricingQuote explicitlyFalse = ParkNflyCanadaPricingCalculator.quote(
-                1, new BigDecimal("50.00"), WEEK, ONTARIO, COMMISSION, false);
-
-        assertEquals(withoutFlag.customerTotal(), explicitlyFalse.customerTotal());
-        assertEquals(new BigDecimal("60.46"), withoutFlag.customerTotal());
-    }
-
     /** Way's commission is a statement figure and never reduces what the customer pays. */
     @Test
     void commissionDoesNotReduceCustomerTotal() {

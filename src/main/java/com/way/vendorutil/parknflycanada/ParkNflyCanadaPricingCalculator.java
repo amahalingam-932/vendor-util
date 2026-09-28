@@ -30,15 +30,7 @@ public final class ParkNflyCanadaPricingCalculator {
     public static ParkNflyCanadaPricingQuote quote(int billableDays, BigDecimal dayRate, BigDecimal weekRate,
             ParkNflyCanadaTaxRule taxRule, BigDecimal wayCommissionPercent) {
         return quote(billableDays, dayRate, weekRate, taxRule, wayCommissionPercent,
-                ParkNflyCanadaCurrencyConversion.NONE, false);
-    }
-
-    /**
-     */
-    public static ParkNflyCanadaPricingQuote quote(int billableDays, BigDecimal dayRate, BigDecimal weekRate,
-            ParkNflyCanadaTaxRule taxRule, BigDecimal wayCommissionPercent, boolean taxIncludesFuel) {
-        return quote(billableDays, dayRate, weekRate, taxRule, wayCommissionPercent,
-                ParkNflyCanadaCurrencyConversion.NONE, taxIncludesFuel);
+                ParkNflyCanadaCurrencyConversion.NONE);
     }
 
     /**
@@ -49,19 +41,6 @@ public final class ParkNflyCanadaPricingCalculator {
     public static ParkNflyCanadaPricingQuote quote(int billableDays, BigDecimal dayRate, BigDecimal weekRate,
             ParkNflyCanadaTaxRule taxRule, BigDecimal wayCommissionPercent,
             ParkNflyCanadaCurrencyConversion conversion) {
-        return quote(billableDays, dayRate, weekRate, taxRule, wayCommissionPercent, conversion, false);
-    }
-
-    /**
-     * As above, with the tax basis this lot is configured for.
-     *
-     * @param taxIncludesFuel true when the fuel surcharge sits inside the taxable amount, which is
-     *                        the per-listing {@code TAX_ON_FUEL} vendor rule. False - the default -
-     *                        taxes the parking base alone.
-     */
-    public static ParkNflyCanadaPricingQuote quote(int billableDays, BigDecimal dayRate, BigDecimal weekRate,
-            ParkNflyCanadaTaxRule taxRule, BigDecimal wayCommissionPercent,
-            ParkNflyCanadaCurrencyConversion conversion, boolean taxIncludesFuel) {
         if (taxRule == null) {
             throw new IllegalArgumentException("taxRule is required");
         }
@@ -74,13 +53,9 @@ public final class ParkNflyCanadaPricingCalculator {
         // Priced in the vendor's currency: this is what Park'N Fly Canada will invoice.
         BigDecimal vendorBase = ParkNflyCanadaStayBaseCalculator.calculateBase(billableDays, dayRate, weekRate);
         BigDecimal vendorFuel = scaleMoney(taxRule.fuelSurcharge());
-        // The base alone by default: that is what Way's shared tax evaluator does for every other
-        // vendor, and it matches what Park'N Fly return - a 12.99 base comes back with 1.69 of tax,
-        // which is thirteen per cent of 12.99 and not of 16.95. A lot whose TAX_ON_FUEL rule says
-        // otherwise taxes base plus surcharge instead, following the vendor's written policy for
-        // that location. One lot's answer, never a service-wide one.
-        BigDecimal taxableAmount = taxIncludesFuel ? vendorBase.add(vendorFuel) : vendorBase;
-        BigDecimal vendorHst = scaleMoney(taxableAmount.multiply(taxRule.hstRate()));
+        // The parking base alone, matching what Park'N Fly return: a 12.99 base comes back with
+        // 1.69 of tax, which is thirteen per cent of 12.99 and not of 16.95.
+        BigDecimal vendorHst = scaleMoney(vendorBase.multiply(taxRule.hstRate()));
         BigDecimal vendorTotal = vendorBase.add(vendorFuel).add(vendorHst);
 
         // Converted for the customer. Each line is converted so the breakdown still sums to the

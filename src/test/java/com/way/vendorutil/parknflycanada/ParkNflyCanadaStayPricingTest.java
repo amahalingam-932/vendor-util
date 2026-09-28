@@ -26,11 +26,11 @@ class ParkNflyCanadaStayPricingTest {
 
     /**
      * The lot's own settings as Ops entered them: {@code PNF_CA_FUEL_SURCHARGE = 3.96},
-     * {@code PNF_CA_HST_PERCENT = 13}, {@code PNF_CA_HST_ON_FUEL = No}. Both money values are
+     * {@code PNF_CA_HST_PERCENT = 13}. Both money values are
      * mandatory on the listing, so this is what every priced stay looks like.
      */
     private static final ParkNflyCanadaVendorTax LOT_TAX =
-            new ParkNflyCanadaVendorTax(new BigDecimal("3.96"), new BigDecimal("13"), Boolean.FALSE);
+            new ParkNflyCanadaVendorTax(new BigDecimal("3.96"), new BigDecimal("13"));
 
     /** {@code CON_WayCommission} for listing 6291560, from its contract. */
     private static final BigDecimal COMMISSION = new BigDecimal("20");
@@ -153,9 +153,9 @@ class ParkNflyCanadaStayPricingTest {
     @Test
     void aLotMissingItsTaxOrSurchargeIsWithheld() {
         ParkNflyCanadaVendorTax surchargeOnly =
-                new ParkNflyCanadaVendorTax(new BigDecimal("3.96"), null, null);
+                new ParkNflyCanadaVendorTax(new BigDecimal("3.96"), null);
         ParkNflyCanadaVendorTax taxOnly =
-                new ParkNflyCanadaVendorTax(null, new BigDecimal("13"), null);
+                new ParkNflyCanadaVendorTax(null, new BigDecimal("13"));
 
         for (ParkNflyCanadaVendorTax incomplete :
                 new ParkNflyCanadaVendorTax[] {surchargeOnly, taxOnly, ParkNflyCanadaVendorTax.NONE, null}) {
@@ -255,21 +255,6 @@ class ParkNflyCanadaStayPricingTest {
     }
 
 
-
-    /** A lot that says its surcharge is taxable is taxed on base plus surcharge. */
-    @Test
-    void aLotCanPutTheSurchargeInsideTheTaxableAmount() {
-        ParkNflyCanadaVendorTax taxOnFuel =
-                new ParkNflyCanadaVendorTax(new BigDecimal("3.96"), new BigDecimal("13"), Boolean.TRUE);
-
-        ParkNflyCanadaStayPricing.Result result = ParkNflyCanadaStayPricing.price(
-                ParkNflyCanadaStayPricing.Request.of(CARD_JSON, "ON", taxOnFuel, COMMISSION,
-                        "2026-09-15 10:00:00", "2026-09-18 10:00:00"),
-                settings());
-
-        // 13% of 38.97 + 3.96 rather than of 38.97 alone.
-        assertEquals(new BigDecimal("5.58"), result.quote().hst());
-    }
 
     /**
      * A lookup that throws withholds the stay instead of escaping.
@@ -383,7 +368,7 @@ class ParkNflyCanadaStayPricingTest {
         return ParkNflyCanadaStayPricing.price(
                 ParkNflyCanadaStayPricing.Request
                         .of(CARD, "ON",
-                                new ParkNflyCanadaVendorTax(new BigDecimal("3.96"), new BigDecimal("13"), false),
+                                new ParkNflyCanadaVendorTax(new BigDecimal("3.96"), new BigDecimal("13")),
                                 new BigDecimal("20"),
                                 checkIn + " 00:00:00", checkIn.plusDays(3) + " 00:00:00")
                         .withSyncedAt(syncedAt),

@@ -7,19 +7,13 @@ import java.util.List;
 /**
  * Park'N Fly Canada's own surcharge and sales tax, read from the listing's vendor tax rules.
  */
-public record ParkNflyCanadaVendorTax(BigDecimal fuelSurcharge, BigDecimal taxRate, Boolean taxOnFuel) {
+public record ParkNflyCanadaVendorTax(BigDecimal fuelSurcharge, BigDecimal taxRate) {
 
     private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
 
     /**
      */
-    public static final ParkNflyCanadaVendorTax NONE = new ParkNflyCanadaVendorTax(null, null, null);
-
-    /**
-     */
-    public ParkNflyCanadaVendorTax(BigDecimal fuelSurcharge, BigDecimal taxRate) {
-        this(fuelSurcharge, taxRate, null);
-    }
+    public static final ParkNflyCanadaVendorTax NONE = new ParkNflyCanadaVendorTax(null, null);
 
     /**
      * Reads the vendor rules into a surcharge and a tax rate.
@@ -37,7 +31,6 @@ public record ParkNflyCanadaVendorTax(BigDecimal fuelSurcharge, BigDecimal taxRa
         }
         BigDecimal surcharge = null;
         BigDecimal percent = null;
-        Boolean onFuel = null;
         for (ParkNflyCanadaWayFee.Rule rule : rules) {
             if (rule == null || rule.type() == null || rule.value() == null) {
                 continue;
@@ -49,27 +42,16 @@ public record ParkNflyCanadaVendorTax(BigDecimal fuelSurcharge, BigDecimal taxRa
             } else if ("AMOUNT".equalsIgnoreCase(type) || "FLAT".equalsIgnoreCase(type)
                     || "$".equals(type)) {
                 surcharge = surcharge == null ? rule.value() : surcharge.add(rule.value());
-            } else if ("TAX_ON_FUEL".equalsIgnoreCase(type) || "HST_ON_FUEL".equalsIgnoreCase(type)) {
-                // A flag, not a levy, so the last row wins rather than the rows adding up - two
-                // of these summing to 2 would mean nothing.
-                onFuel = rule.value().signum() != 0;
             }
         }
-        return surcharge == null && percent == null && onFuel == null ? NONE
-                : new ParkNflyCanadaVendorTax(surcharge, percent, onFuel);
+        return surcharge == null && percent == null ? NONE
+                : new ParkNflyCanadaVendorTax(surcharge, percent);
     }
 
     /**
      */
     public boolean isEmpty() {
-        return fuelSurcharge == null && taxRate == null && taxOnFuel == null;
-    }
-
-    /**
-     * Whether the fuel surcharge sits inside the taxable amount for this lot.
-     */
-    public boolean taxIncludesFuel() {
-        return Boolean.TRUE.equals(taxOnFuel);
+        return fuelSurcharge == null && taxRate == null;
     }
 
     /**
